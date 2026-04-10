@@ -1,0 +1,13 @@
+[
+  {
+    "index": 0,
+    "timestamp": 1775562257.2224236,
+    "case_id": "CASE-#29258A",
+    "filename": "20240105_221602.jpg",
+    "doc_type": "auto",
+    "verdict": "SUSPICIOUS",
+    "document_hash": "33370773bc53a00742ad0234322739272ffaeeafe3ee25398d99134caac68588",
+    "previous_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+    "block_hash": "2399434d78ebf27ec54668bd1962dd80b5a75292acea3b122074eb2bdc0af376"
+  }
+]
