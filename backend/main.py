@@ -43,13 +43,9 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173", 
-        "http://127.0.0.1:5173",
-        "https://*.vercel.app", # Flexibility for Vercel previews
-        "*"                      # Fallback for hackathon testing
-    ],
-    allow_credentials=True,
+    allow_origins=["*"], # For hackathons, we can disable credentials to allow wildcard if needed, 
+                         # or allow specific patterns. Setting to "*" and credentials=False is safest for fetch errors.
+    allow_credentials=False, 
     allow_methods=["*"],
     allow_headers=["*"],
 )
