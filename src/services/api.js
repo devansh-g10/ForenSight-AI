@@ -3,7 +3,8 @@
  * Phase 5 & 7: Grad-CAM + Blockchain + Rich Demo Presets
  */
 
-const BASE_URL = "http://localhost:8000";
+// Use VITE_API_URL from environment or fallback to localhost for development
+const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
 export const api = {
   /** Full multi-agent + Grad-CAM analysis */
