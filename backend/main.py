@@ -154,7 +154,7 @@ async def analyze_document(
 
     # ── Decision Engine
     decision_result = await run_thread(
-        decision_engine.run, image.copy(), img_result, ocr_result, sig_result
+        decision_engine.run, image.copy(), img_result, ocr_result, sig_result, gradcam_result
     )
 
     elapsed = round(time.time() - start, 3)

@@ -5,9 +5,16 @@ import { Shield, Mail, Key, ChevronRight, Activity, Terminal, Lock, Fingerprint,
 export default function LoginPage({ onLogin, onSignUp }) {
   const [isScanning, setIsScanning] = useState(false);
   const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
 
   const handleAuth = (e) => {
     e.preventDefault();
+    if (!email || !password) {
+      setError('Please enter all credentials');
+      return;
+    }
+    setError('');
     setIsScanning(true);
     setTimeout(() => {
       onLogin();
@@ -120,14 +127,16 @@ export default function LoginPage({ onLogin, onSignUp }) {
                   <Lock size={12} color="#a78bfa" />
                   <label style={{ fontSize: '10px', fontFamily: "'JetBrains Mono', monospace", color: '#71717a', textTransform: 'uppercase', letterSpacing: '0.2em' }}>Access Cipher</label>
                 </div>
-                <a href="#" style={{ fontSize: '9px', fontFamily: "'JetBrains Mono', monospace", color: '#3f3f46', textDecoration: 'none', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Forgot?</a>
+                <a href="#" onClick={(e) => { e.preventDefault(); alert('Reset protocol initiated. Check encrypted channel.'); }} style={{ fontSize: '9px', fontFamily: "'JetBrains Mono', monospace", color: '#3f3f46', textDecoration: 'none', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Forgot?</a>
               </div>
               <div style={{ position: 'relative' }}>
-                <input required disabled={isScanning} type="password" placeholder="••••••••••••"
+                <input required disabled={isScanning} type="password" placeholder="••••••••••••" value={password} onChange={e => setPassword(e.target.value)}
                   style={{ width: '100%', padding: '14px 18px', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.08)', outline: 'none', color: '#fff', fontFamily: "'JetBrains Mono', monospace", fontSize: '13px', transition: 'all 0.3s' }}
                   onFocus={e => e.target.style.borderColor = '#a78bfa'} onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.08)'} />
               </div>
             </div>
+
+            {error && <div style={{ fontSize: '10px', color: '#f87171', fontFamily: "'JetBrains Mono', monospace" }}>[ERROR] {error}</div>}
 
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', userSelect: 'none' }}>

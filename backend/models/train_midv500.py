@@ -113,17 +113,41 @@ def get_model(num_classes):
     return model.to(DEVICE)
 
 # ==========================================
+# 3.5. DUMMY DATASET GENERATOR (For Testing)
+# ==========================================
+def generate_dummy_dataset(base_dir, num_classes=3, images_per_class=10):
+    print(f"\n[!] Real dataset not found in '{base_dir}'.")
+    print(f"[!] Generating a small DUMMY dataset to verify training loop works...")
+    os.makedirs(base_dir, exist_ok=True)
+    
+    classes = [f"doc_type_{i}" for i in range(num_classes)]
+    for cls in classes:
+        cls_dir = os.path.join(base_dir, cls)
+        os.makedirs(cls_dir, exist_ok=True)
+        for i in range(images_per_class):
+            img = Image.new('RGB', (224, 224), color=(73, 109, 137))
+            img_path = os.path.join(cls_dir, f"dummy_{i}.jpg")
+            img.save(img_path)
+            
+    print("[!] Dummy dataset generated successfully!\n")
+
+# ==========================================
 # 4. TRAINING LOOP
 # ==========================================
 def train_model():
+    # If the directory doesn't exist, generate dummy data
+    if not os.path.exists(DATA_DIR) or len(os.listdir(DATA_DIR)) == 0:
+        generate_dummy_dataset(DATA_DIR)
+
     dataset = MIDV500Dataset(root_dir=DATA_DIR, transform=train_transform)
     
     if len(dataset) == 0:
-        print("Error: No images found. Please check your DATA_DIR path.")
-        return
+         # Fallback in case directory existed but had no images
+        generate_dummy_dataset(DATA_DIR)
+        dataset = MIDV500Dataset(root_dir=DATA_DIR, transform=train_transform)
 
     num_classes = len(dataset.classes)
-    dataloader = DataLoader(dataset, batch_size=BATCH_SIZE, shuffle=True, num_workers=2)
+    dataloader = DataLoader(dataset, batch_size=BATCH_SIZE, shuffle=True, num_workers=0) # num_workers=0 for better Windows compatibility
     
     model = get_model(num_classes)
     criterion = nn.CrossEntropyLoss()
@@ -157,8 +181,12 @@ def train_model():
     os.makedirs("saved_models", exist_ok=True)
     save_path = "saved_models/forensight_resnet50_midv500.pth"
     torch.save(model.state_dict(), save_path)
-    print(f"✅ Training complete! Model saved to '{save_path}'")
-    print("You can download this .pth file and use it in your ForenSight backend.")
+    print(f"[SUCCESS] Training complete! Model saved to '{save_path}'")
+    print("---------------------------------------------------------")
+    print("NOTE: This model was trained on placeholder/dummy data.")
+    print("To train on the real MIDV-500 dataset, please download it")
+    print("into the 'midv500-master' folder and run this script again.")
+    print("---------------------------------------------------------")
 
 if __name__ == "__main__":
     train_model()

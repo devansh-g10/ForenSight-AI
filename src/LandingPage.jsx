@@ -434,16 +434,6 @@ export default function LandingPage({ onStart }) {
       <div style={{ position: 'fixed', top: '15%', left: '10%', width: 500, height: 500, borderRadius: '50%', background: 'radial-gradient(circle, rgba(0,245,255,0.04) 0%, transparent 70%)', filter: 'blur(50px)', pointerEvents: 'none', zIndex: 1 }} />
       <div style={{ position: 'fixed', bottom: '20%', right: '10%', width: 400, height: 400, borderRadius: '50%', background: 'radial-gradient(circle, rgba(167,139,250,0.05) 0%, transparent 70%)', filter: 'blur(50px)', pointerEvents: 'none', zIndex: 1 }} />
 
-      {/* ─── STATUS RIBBON ─── */}
-      <div style={{ position: 'relative', zIndex: 20, display: 'flex', alignItems: 'center', gap: 32, padding: '7px 40px', background: 'rgba(0,245,255,0.04)', borderBottom: '1px solid rgba(0,245,255,0.08)', overflowX: 'hidden' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-          <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#4ade80', animation: 'blinkCursor 2s infinite' }} />
-          <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 9, color: '#4ade80', textTransform: 'uppercase', letterSpacing: '.2em' }}>All Systems Nominal</span>
-        </div>
-        <div style={{ display: 'flex', gap: 28, fontFamily: 'JetBrains Mono, monospace', fontSize: 9, color: '#27272a', textTransform: 'uppercase', letterSpacing: '.12em', overflowX: 'hidden' }}>
-          {['OCR Agent: Online', 'ELA Engine: Armed', 'Grad-CAM: Loaded', 'Blockchain: Synced', 'Decision AI: Ready'].map(t => <span key={t} style={{ flexShrink: 0 }}>{t}</span>)}
-        </div>
-      </div>
 
       {/* ─── NAVBAR ─── */}
       <motion.nav initial={{ opacity: 0, y: -16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: .6 }}
@@ -458,7 +448,7 @@ export default function LandingPage({ onStart }) {
         <motion.button whileHover={{ scale: 1.05, boxShadow: '0 0 20px rgba(0,245,255,0.4)' }} whileTap={{ scale: 0.95 }}
           onClick={onStart}
           style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 24px', background: 'rgba(0,245,255,0.1)', color: '#00F5FF', fontFamily: 'Space Grotesk, sans-serif', fontWeight: 700, fontSize: 13, borderRadius: 10, border: '1px solid rgba(0,245,255,0.3)', cursor: 'pointer', letterSpacing: '.08em', textTransform: 'uppercase' }}>
-          <Lock size={15} /> SECURE LOGIN
+          <Terminal size={15} /> ACCESS TERMINAL
         </motion.button>
       </motion.nav>
 
@@ -476,11 +466,7 @@ export default function LandingPage({ onStart }) {
               <span>6-Agent AI Ensemble</span>
               <span style={{ color: 'rgba(0,245,255,0.3)' }}>/</span>
               <span>MIDV-500 Calibrated</span>
-              <span style={{ color: 'rgba(0,245,255,0.3)' }}>/</span>
-              <span>Blockchain-Secured</span>
             </span>
-            <div style={{ width: 1, height: 14, background: 'rgba(0,245,255,0.2)' }} />
-            <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 10, color: '#f87171', textTransform: 'uppercase', letterSpacing: '.12em', fontWeight: 700 }}>99.8% F1-SCORE</span>
           </motion.div>
 
           {/* Headline */}

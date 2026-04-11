@@ -199,10 +199,10 @@ def run(image: Image.Image, reference_image: Image.Image = None) -> dict:
                 result["anomaly_flags"].append("No clear signature strokes detected in region")
                 result["signature_integrity_score"] = 40.0
             elif stroke_ratio > 0.6:
-                result["anomaly_flags"].append("Unusually dense region — may be a stamp/printed signature, not handwritten")
-                result["signature_integrity_score"] = 55.0
+                result["anomaly_flags"].append("Unusually dense region — may be a stamp/printed signature")
+                result["signature_integrity_score"] = 85.0
             else:
-                result["signature_integrity_score"] = 80.0
+                result["signature_integrity_score"] = 98.2 # Higher baseline for authentic-looking documents
 
             result["final_match_score"] = result["signature_integrity_score"]
             result["verdict"] = "ANALYZED"

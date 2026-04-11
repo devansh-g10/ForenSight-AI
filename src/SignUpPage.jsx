@@ -4,9 +4,18 @@ import { Shield, User, Mail, Key, ChevronRight, Globe, Smartphone, Terminal, Act
 
 export default function SignUpPage({ onSignUp, onSignIn }) {
   const [isRegistering, setIsRegistering] = useState(false);
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
 
   const handleSubmit = (e) => {
     e.preventDefault();
+    if (!name || !email || !password) {
+      setError('Missing required node identity');
+      return;
+    }
+    setError('');
     setIsRegistering(true);
     setTimeout(() => {
       onSignUp();
@@ -57,7 +66,7 @@ export default function SignUpPage({ onSignUp, onSignIn }) {
                 <User size={12} color="#00F5FF" />
                 <label style={{ fontSize: '10px', fontFamily: "'JetBrains Mono', monospace", color: '#71717a', textTransform: 'uppercase', letterSpacing: '0.2em' }}>Full Name</label>
               </div>
-              <input required disabled={isRegistering} type="text" placeholder="OPERATOR_NAME"
+              <input required disabled={isRegistering} type="text" placeholder="OPERATOR_NAME" value={name} onChange={e => setName(e.target.value)}
                 style={{ width: '100%', padding: '14px 0', background: 'none', border: 'none', borderBottom: '1px solid rgba(255,255,255,0.1)', outline: 'none', color: '#fff', fontFamily: "'JetBrains Mono', monospace", fontSize: '13px' }} />
             </div>
 
@@ -66,7 +75,7 @@ export default function SignUpPage({ onSignUp, onSignIn }) {
                 <Mail size={12} color="#00F5FF" />
                 <label style={{ fontSize: '10px', fontFamily: "'JetBrains Mono', monospace", color: '#71717a', textTransform: 'uppercase', letterSpacing: '0.2em' }}>Secure Email</label>
               </div>
-              <input required disabled={isRegistering} type="email" placeholder="ENCRYPTED_ID@SECURE.HOST"
+              <input required disabled={isRegistering} type="email" placeholder="ENCRYPTED_ID@SECURE.HOST" value={email} onChange={e => setEmail(e.target.value)}
                 style={{ width: '100%', padding: '14px 0', background: 'none', border: 'none', borderBottom: '1px solid rgba(255,255,255,0.1)', outline: 'none', color: '#fff', fontFamily: "'JetBrains Mono', monospace", fontSize: '13px' }} />
             </div>
 
@@ -75,9 +84,11 @@ export default function SignUpPage({ onSignUp, onSignIn }) {
                 <Key size={12} color="#a78bfa" />
                 <label style={{ fontSize: '10px', fontFamily: "'JetBrains Mono', monospace", color: '#71717a', textTransform: 'uppercase', letterSpacing: '0.2em' }}>Set Passphrase</label>
               </div>
-              <input required disabled={isRegistering} type="password" placeholder="••••••••••••"
+              <input required disabled={isRegistering} type="password" placeholder="••••••••••••" value={password} onChange={e => setPassword(e.target.value)}
                 style={{ width: '100%', padding: '14px 0', background: 'none', border: 'none', borderBottom: '1px solid rgba(255,255,255,0.1)', outline: 'none', color: '#fff', fontFamily: "'JetBrains Mono', monospace", fontSize: '13px' }} />
             </div>
+
+            {error && <div style={{ fontSize: '10px', color: '#f87171', fontFamily: "'JetBrains Mono', monospace" }}>[ERROR] {error}</div>}
 
             <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} disabled={isRegistering}
               style={{ width: '100%', padding: '20px', background: 'linear-gradient(90deg, #00F5FF, #818cf8)', color: '#000', border: 'none', borderRadius: 0, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, boxShadow: '0 15px 40px rgba(0,245,255,0.25)' }}>

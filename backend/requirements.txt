@@ -12,3 +12,5 @@ torchvision==0.19.1
 python-jose==3.3.0
 aiofiles==24.1.0
 pymupdf==1.24.10
+transformers==4.44.2
+huggingface_hub==0.24.6

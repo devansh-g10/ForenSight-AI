@@ -1,18 +1,28 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import {
   Upload, Shield, FileSearch, Fingerprint, Activity,
   Terminal, History, LayoutDashboard, Settings, Bell,
   ChevronRight, BrainCircuit, Scan, Database, Zap,
-  CheckCircle, XCircle, AlertTriangle, Link, Play, Cpu, Eye, Lock
+  CheckCircle, XCircle, AlertTriangle, Link, Play, Cpu, Eye, Lock, Globe, Radio
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import SignUpPage from './SignUpPage.jsx';
 import api from './services/api';
 import LandingPage from './LandingPage.jsx';
-import LoginPage from './LoginPage.jsx';
 
 // ── Helpers ──────────────────────────────────────────────
 const scoreColor = (s) => s > 65 ? '#4ade80' : s > 45 ? '#facc15' : '#f87171';
+
+const getVerdictConfig = (verdict) => {
+  const v = (verdict || '').toUpperCase();
+  const cfg = {
+    REAL:       { bg: 'rgba(74,222,128,.1)', color: '#4ade80', border: 'rgba(74,222,128,.3)', icon: CheckCircle, label: 'REAL' },
+    AUTHENTIC:  { bg: 'rgba(74,222,128,.1)', color: '#4ade80', border: 'rgba(74,222,128,.3)', icon: CheckCircle, label: 'AUTHENTIC' },
+    SUSPICIOUS: { bg: 'rgba(250,204,21,.1)', color: '#facc15', border: 'rgba(250,204,21,.3)', icon: AlertTriangle, label: 'SUSPICIOUS' },
+    FAKE:       { bg: 'rgba(248,113,113,.1)', color: '#f87171', border: 'rgba(248,113,113,.3)', icon: XCircle, label: 'FAKE' },
+    FORGED:     { bg: 'rgba(248,113,113,.1)', color: '#f87171', border: 'rgba(248,113,113,.3)', icon: XCircle, label: 'FORGED' }
+  };
+  return cfg[v] || { bg: 'rgba(100,100,100,.1)', color: '#aaa', border: 'rgba(100,100,100,.3)', icon: AlertTriangle, label: 'UNKNOWN' };
+};
 
 const SidebarItem = ({ icon: Icon, label, active, onClick }) => (
   <button onClick={onClick} className={`sidebar-item ${active ? 'active' : ''}`}>
@@ -46,16 +56,12 @@ const AgentCard = ({ agent, status, progress, score }) => {
 };
 
 const VerdictBadge = ({ verdict }) => {
-  const cfg = {
-    AUTHENTIC: { bg: 'rgba(74,222,128,.1)', color: '#4ade80', border: 'rgba(74,222,128,.3)', icon: CheckCircle },
-    SUSPICIOUS: { bg: 'rgba(250,204,21,.1)', color: '#facc15', border: 'rgba(250,204,21,.3)', icon: AlertTriangle },
-    FORGED:     { bg: 'rgba(248,113,113,.1)', color: '#f87171', border: 'rgba(248,113,113,.3)', icon: XCircle },
-  }[verdict] || { bg: 'rgba(100,100,100,.1)', color: '#aaa', border: 'rgba(100,100,100,.3)', icon: AlertTriangle };
+  const cfg = getVerdictConfig(verdict);
   const Icon = cfg.icon;
   return (
     <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '7px 14px', background: cfg.bg, border: `1px solid ${cfg.border}`, borderRadius: 9 }}>
       <Icon style={{ width: 17, height: 17, color: cfg.color }} />
-      <span style={{ fontFamily: "'Space Grotesk',sans-serif", fontWeight: 700, fontSize: '1rem', color: cfg.color, letterSpacing: '0.05em' }}>{verdict}</span>
+      <span style={{ fontFamily: "'Space Grotesk',sans-serif", fontWeight: 700, fontSize: '1rem', color: cfg.color, letterSpacing: '0.05em' }}>{cfg.label}</span>
     </div>
   );
 };
@@ -65,6 +71,24 @@ const StatMini = ({ label, value, color = '#00F5FF' }) => (
     <div style={{ fontSize: '0.55rem', color: '#52525b', fontFamily: "'JetBrains Mono',monospace", textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 4 }}>{label}</div>
     <div style={{ fontSize: '1.3rem', fontFamily: "'Space Grotesk',sans-serif", fontWeight: 700, color }}>{value}</div>
   </div>
+);
+
+const SectionHeader = ({ icon: Icon, title, sub }) => (
+  <div style={{ marginBottom: 24 }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
+      <Icon size={20} color="#00F5FF" />
+      <h2 style={{ fontSize: '1.5rem', fontWeight: 700 }}>{title}</h2>
+    </div>
+    <p style={{ fontSize: '0.75rem', color: '#52525b', fontFamily: "'JetBrains Mono',monospace", textTransform: 'uppercase', letterSpacing: '0.1em' }}>{sub}</p>
+  </div>
+);
+
+const Menu = ({ style, ...props }) => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={style} {...props}>
+    <line x1="3" y1="12" x2="21" y2="12"></line>
+    <line x1="3" y1="6" x2="21" y2="6"></line>
+    <line x1="3" y1="18" x2="21" y2="18"></line>
+  </svg>
 );
 
 // ── Grad-CAM Interactive Heatmap ─────────────────────────
@@ -102,8 +126,8 @@ const GradCamPanel = ({ gradcam, originalB64 }) => {
             onMouseLeave={() => setHoveredRegion(null)}
             style={{
               position: 'absolute',
-              left: `${(r.x / 700) * 100}%`, top: `${(r.y / 500) * 100}%`,
-              width: `${(r.w / 700) * 100}%`, height: `${(r.h / 500) * 100}%`,
+              left: `${(r.x / (gradcam.width || 700)) * 100}%`, top: `${(r.y / (gradcam.height || 500)) * 100}%`,
+              width: `${(r.w / (gradcam.width || 700)) * 100}%`, height: `${(r.h / (gradcam.height || 500)) * 100}%`,
               border: `2px solid ${r.severity === 'HIGH' ? '#f87171' : r.severity === 'MEDIUM' ? '#facc15' : '#60a5fa'}`,
               borderRadius: 3, cursor: 'pointer', boxSizing: 'border-box',
               boxShadow: r.severity === 'HIGH' ? '0 0 8px rgba(248,113,113,.5)' : 'none',
@@ -182,7 +206,7 @@ const ResultsPanel = ({ result }) => {
         <div style={{ textAlign: 'right' }}>
           <div style={{ fontSize: '0.55rem', color: '#52525b', marginBottom: 3 }}>Composite Score</div>
           <div style={{ fontSize: '1.9rem', fontFamily: "'Space Grotesk',sans-serif", fontWeight: 800, color: scoreColor(result.composite_integrity_score) }}>
-            {result.composite_integrity_score?.toFixed(1)}
+            {(result.composite_integrity_score || 0).toFixed(1)}
           </div>
           <div style={{ fontSize: '0.55rem', color: '#52525b' }}>Confidence: {result.confidence_percent}%</div>
         </div>
@@ -204,36 +228,84 @@ const ResultsPanel = ({ result }) => {
       {/* Overview */}
       {tab === 'overview' && (
         <>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 10, marginBottom: 16 }}>
-            {Object.entries(result.agent_scores || {}).map(([key, score]) => {
-              const names = { image_forensics: '🔬 Image ELA', ocr_text: '📝 OCR Text', signature: '✍️ Signature' };
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5,1fr)', gap: 8, marginBottom: 16 }}>
+            {Object.entries(result.breakdown || {}).map(([key, score]) => {
+              const names = { 
+                ocr: '📝 OCR', 
+                ela: '🔬 ELA', 
+                orb: '✍️ SIGN',
+                xai: '🧠 NEURAL',
+                ledger: '🔗 BLOCK'
+              };
+              const displayScore = gs(key);
               return (
-                <div key={key} style={{ padding: 12, background: 'rgba(0,0,0,.3)', border: '1px solid rgba(55,65,81,.4)', borderRadius: 10 }}>
-                  <div style={{ fontSize: '0.6rem', color: '#52525b', marginBottom: 7 }}>{names[key] || key}</div>
-                  <div style={{ fontSize: '1.4rem', fontFamily: "'Space Grotesk',sans-serif", fontWeight: 700, color: scoreColor(score) }}>{score?.toFixed(1)}%</div>
-                  <div style={{ marginTop: 7 }} className="progress-track">
+                <div key={key} style={{ padding: 10, background: 'rgba(0,0,0,.3)', border: '1px solid rgba(55,65,81,.4)', borderRadius: 10 }}>
+                  <div style={{ fontSize: '0.55rem', color: '#52525b', marginBottom: 5, textTransform:'uppercase' }}>{names[key] || key}</div>
+                  <div style={{ fontSize: '1.2rem', fontFamily: "'Space Grotesk',sans-serif", fontWeight: 700, color: scoreColor(displayScore) }}>{(displayScore).toFixed(1)}%</div>
+                  <div style={{ marginTop: 6 }} className="progress-track">
                     <div className="progress-fill" style={{ width: `${score}%`, background: scoreColor(score), boxShadow: 'none' }} />
                   </div>
                 </div>
               );
             })}
           </div>
+
+          {/* Expert Reason */}
+          {result.reason && (
+             <div style={{ padding: 14, background: 'rgba(0,245,255,.05)', border: '1px solid rgba(0,245,255,.2)', borderRadius: 12, marginBottom: 16 }}>
+                 <div style={{ fontSize: '0.62rem', color: '#00F5FF', fontFamily: 'JetBrains Mono, monospace', marginBottom: 6, textTransform: 'uppercase' }}>Expert Forensic Narrative</div>
+                 <p style={{ fontSize: '0.82rem', color: '#d4d4d8', lineHeight: 1.5, fontWeight: 500 }}>{result.reason}</p>
+             </div>
+          )}
           {/* Grad-CAM integrity mini */}
           {result.gradcam?.gradcam_integrity_score !== undefined && (
             <div style={{ padding: 12, background: 'rgba(0,245,255,.03)', border: '1px solid rgba(0,245,255,.1)', borderRadius: 10, marginBottom: 12 }}>
               <div style={{ fontSize: '0.6rem', color: '#00F5FF', fontFamily: "'JetBrains Mono',monospace", marginBottom: 6 }}>🧠 GRAD-CAM (RESNET50)</div>
               <div style={{ display: 'flex', gap: 16 }}>
-                <StatMini label="Grad-CAM Score" value={`${result.gradcam.gradcam_integrity_score?.toFixed(1)}%`} color={scoreColor(result.gradcam.gradcam_integrity_score)} />
+                <StatMini label="Grad-CAM Score" value={`${(result.gradcam.gradcam_integrity_score || 0).toFixed(1)}%`} color={scoreColor(result.gradcam.gradcam_integrity_score)} />
                 <StatMini label="Hotspots" value={result.gradcam.hotspot_regions?.length || 0} color="#facc15" />
-                <StatMini label="CNN Confidence" value={`${result.gradcam.cnn_confidence?.toFixed(1)}%`} />
+                <StatMini label="CNN Confidence" value={`${(result.gradcam.cnn_confidence || 0).toFixed(1)}%`} />
               </div>
             </div>
           )}
           {/* XAI Explanations */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {(result.xai_explanations || []).map((exp, i) => (
-              <div key={i} style={{ padding: 10, background: 'rgba(0,0,0,.25)', border: '1px solid rgba(55,65,81,.35)', borderRadius: 9, fontSize: '0.73rem', color: '#a1a1aa', lineHeight: 1.55 }}>{exp}</div>
-            ))}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {(result.xai_explanations || []).map((exp, i) => {
+              const IsSummary = exp.includes('SUMMARY:');
+              const IsRec = exp.includes('RECOMMENDATION:');
+              const isPixel = exp.includes('PIXEL');
+              const isOCR = exp.includes('OCR');
+              const isSig = exp.includes('SIGNATURE');
+              
+              let bgColor = 'rgba(0,0,0,.25)';
+              let borderColor = 'rgba(55,65,81,.35)';
+              let textColor = '#a1a1aa';
+
+              if (IsSummary) {
+                bgColor = 'rgba(0,245,255,.04)';
+                borderColor = 'rgba(0,245,255,.2)';
+                textColor = '#e4e4e7';
+              } else if (IsRec) {
+                bgColor = 'rgba(167,139,250,.04)';
+                borderColor = 'rgba(167,139,250,.2)';
+              }
+
+              return (
+                <div key={i} style={{ 
+                  padding: IsSummary ? '14px 16px' : '10px 14px', 
+                  background: bgColor, 
+                  border: `1px solid ${borderColor}`, 
+                  borderRadius: 12, 
+                  fontSize: IsSummary ? '0.8rem' : '0.73rem', 
+                  color: textColor, 
+                  lineHeight: 1.6,
+                  fontWeight: IsSummary ? 600 : 400,
+                  boxShadow: IsSummary ? '0 4px 12px rgba(0,245,255,0.03)' : 'none'
+                }}>
+                  {exp}
+                </div>
+              );
+            })}
           </div>
         </>
       )}
@@ -325,18 +397,77 @@ export default function App() {
   const [error, setError] = useState(null);
   const [registerOnChain, setRegisterOnChain] = useState(false);
   const [agentStatuses, setAgentStatuses] = useState({ ocr:'Standby', image:'Standby', sig:'Standby', decision:'Standby', gradcam:'Standby' });
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [archiveFilter, setArchiveFilter] = useState('ALL');
+  const [liveStats, setLiveStats] = useState({ 
+    scans: 1284, 
+    forgeries: 342, 
+    integrity: 99.8, 
+    packets: [] 
+  });
+  const [terminalLogs, setTerminalLogs] = useState([
+    { t: new Date().toLocaleTimeString(), m: 'Kernels online. Awaiting data packets.', s: 'SYS' },
+    { t: new Date().toLocaleTimeString(), m: 'Neural node handshake... SECURE', s: 'NET' }
+  ]);
+  const [systemHealth, setSystemHealth] = useState({ gpu: 34, ram: 52, neural: 12 });
   const fileInputRef = useRef();
+  const timersRef = useRef([]);
+
+  // Live monitor simulation (Network traffic only, no random jumps for core stats)
+  useEffect(() => {
+    const iv = setInterval(() => {
+      setLiveStats(prev => {
+        const packetId = Math.random().toString(36).substring(7).toUpperCase();
+        const action = ['GET', 'POST', 'SYNC', 'SCAN', 'PARSE'][Math.floor(Math.random() * 5)];
+        
+        // Random network traffic logs (keep for aesthetic)
+        if (Math.random() > 0.8) {
+           setTerminalLogs(logs => [
+             { t: new Date().toLocaleTimeString(), m: `Cluster node ${Math.floor(Math.random()*9)} heartbeat: OK`, s: 'NET' },
+             ...logs
+           ].slice(0, 50));
+        }
+
+        return {
+          ...prev,
+          integrity: 99.92 + (Math.random() * 0.05),
+          packets: [{ id: packetId, action, time: new Date().toLocaleTimeString() }, ...prev.packets].slice(0, 5)
+        };
+      });
+
+      setSystemHealth({
+        gpu: Math.floor(Math.random() * 15) + (isScanning ? 60 : 25),
+        ram: Math.floor(Math.random() * 5) + (isScanning ? 70 : 50),
+        neural: isScanning ? Math.floor(Math.random() * 40) + 50 : Math.floor(Math.random() * 10) + 5
+      });
+    }, 5000);
+    return () => clearInterval(iv);
+  }, [isScanning]);
+
+  useEffect(() => {
+    return () => {
+      timersRef.current.forEach(t => clearTimeout(t));
+    };
+  }, []);
 
   const simulateAgents = () => {
+    // Clear previous timers
+    timersRef.current.forEach(t => clearTimeout(t));
+    timersRef.current = [];
+
     const steps = [
       { d: 200,  u: { ocr: 'Active' } },
       { d: 700,  u: { image: 'Active' } },
-      { d: 1400, u: { ocr: 'Done', sig: 'Active' } },
-      { d: 2100, u: { image: 'Done', gradcam: 'Active' } },
-      { d: 2800, u: { sig: 'Done', decision: 'Active' } },
-      { d: 3600, u: { gradcam: 'Done', decision: 'Done' } },
+      { d: 1100, u: { ocr: 'Done', sig: 'Active' } },
+      { d: 1800, u: { image: 'Done', gradcam: 'Active' } },
+      { d: 2400, u: { sig: 'Done', decision: 'Active' } },
+      { d: 3000, u: { gradcam: 'Done' } },
+      { d: 3400, u: { decision: 'Done' } },
     ];
-    steps.forEach(({ d, u }) => setTimeout(() => setAgentStatuses(p => ({ ...p, ...u })), d));
+    steps.forEach(({ d, u }) => {
+      const t = setTimeout(() => setAgentStatuses(p => ({ ...p, ...u })), d);
+      timersRef.current.push(t);
+    });
   };
 
   const runScan = useCallback(async (scanFn) => {
@@ -350,7 +481,16 @@ export default function App() {
     try {
       const data = await scanFn();
       clearInterval(iv); setScanProgress(100);
-      setTimeout(() => { setResult(data); setIsScanning(false); }, 400);
+      setTimeout(() => { 
+        setResult(data); 
+        setIsScanning(false);
+        // Realistic stat update
+        setLiveStats(prev => ({
+          ...prev,
+          scans: prev.scans + 1,
+          forgeries: (data.verdict === 'FAKE' || data.verdict === 'SUSPICIOUS') ? prev.forgeries + 1 : prev.forgeries
+        }));
+      }, 400);
     } catch (err) {
       clearInterval(iv); setIsScanning(false);
       setError(err.message);
@@ -365,29 +505,48 @@ export default function App() {
     runScan(() => api.getDemoResult(presetId));
   }, [runScan]);
 
-  const gp = (key) => {
-    const s = agentStatuses[key];
-    return s === 'Done' ? 100 : s === 'Active' ? Math.min(scanProgress * 1.3, 90) : 0;
+  const gs = (key) => {
+    if (!result) return 0;
+    // Multi-key mapping to handle various backend versions
+    const map = { 
+      ocr: ['ocr', 'ocr_score', 'ocr_integrity'], 
+      image: ['ela', 'ela_score', 'image_forensics_score', 'image'], 
+      sig: ['orb', 'orb_score', 'signature_score', 'sig'], 
+      gradcam: ['xai', 'xai_score', 'neural_analysis_score', 'gradcam'], 
+      decision: ['ledger', 'ledger_score', 'blockchain_score', 'decision'] 
+    };
+    
+    const possibleKeys = map[key] || [];
+    for (const k of possibleKeys) {
+      // Check in breakdown
+      if (result.breakdown?.[k] !== undefined) return parseFloat(result.breakdown[k]);
+      // Check in agent_scores
+      if (result.agent_scores?.[k] !== undefined) return parseFloat(result.agent_scores[k]);
+      // Check in flat result
+      if (result[k] !== undefined) return parseFloat(result[k]);
+    }
+    
+    // Fallback for visual stability
+    return result.agent_scores?.[key] || 0;
   };
-  const gs = (key) => result?.agent_scores?.[{ ocr:'ocr_text', image:'image_forensics', sig:'signature' }[key]];
+
+  const gp = (key) => {
+    if (agentStatuses[key] === 'Done') {
+      return gs(key); // Show actual integrity score when done
+    }
+    if (agentStatuses[key] === 'Active') return Math.max(15, scanProgress);
+    return 0;
+  };
 
   if (route === 'landing') {
-    return <LandingPage onStart={() => setRoute('login')} />;
-  }
-
-  if (route === 'login') {
-    return <LoginPage onLogin={() => setRoute('app')} onSignUp={() => setRoute('signup')} />;
-  }
-
-  if (route === 'signup') {
-    return <SignUpPage onSignUp={() => setRoute('login')} onSignIn={() => setRoute('login')} />;
+    return <LandingPage onStart={() => setRoute('dashboard')} />;
   }
 
   return (
     <div className="app-layout tactical-grid radar-scan">
 
       {/* ── SIDEBAR ── */}
-      <aside className="sidebar glass-panel">
+      <aside className={`sidebar glass-panel ${mobileMenuOpen ? 'mobile-open' : ''}`}>
         <div style={{ padding: '20px 16px 14px' }}>
           <button
             onClick={() => setRoute('landing')}
@@ -413,7 +572,7 @@ export default function App() {
 
         <nav style={{ padding: '4px 9px', display: 'flex', flexDirection: 'column', gap: 2 }}>
           <SidebarItem icon={LayoutDashboard} label="Dashboard" active={activeTab==='dashboard'} onClick={() => setActiveTab('dashboard')} />
-          <SidebarItem icon={Scan} label="Document Scan" active={activeTab==='scan'} onClick={() => setActiveTab('scan')} />
+          <SidebarItem icon={Globe} label="Network Monitor" active={activeTab==='network'} onClick={() => setActiveTab('network')} />
           <SidebarItem icon={History} label="Evidence Log" active={activeTab==='logs'} onClick={() => setActiveTab('logs')} />
           <SidebarItem icon={Database} label="Archive" active={activeTab==='archive'} onClick={() => setActiveTab('archive')} />
           <div style={{ height: 1, background: 'rgba(55,65,81,.35)', margin: '6px 4px' }} />
@@ -444,15 +603,21 @@ export default function App() {
 
         {/* System Status */}
         <div style={{ padding: '0 12px 16px', marginTop: 'auto' }}>
-          <div style={{ padding: 11, background: 'rgba(0,0,0,.3)', border: '1px solid rgba(55,65,81,.4)', borderRadius: 11 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 7 }}>
-              <Cpu style={{ width: 11, height: 11, color: '#00F5FF' }} />
-              <span style={{ fontSize: '0.5rem', fontFamily: "'JetBrains Mono',monospace", color: '#00F5FF', textTransform: 'uppercase', letterSpacing: '0.1em' }}>System</span>
+          <div style={{ padding: 14, background: 'rgba(0,0,0,.3)', border: '1px solid rgba(55,65,81,.4)', borderRadius: 14, position: 'relative', overflow: 'hidden' }}>
+            <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', background: 'linear-gradient(135deg,rgba(0,245,255,.02) 0%,transparent 100%)', pointerEvents: 'none' }} />
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <Cpu style={{ width: 12, height: 12, color: '#00F5FF' }} />
+                <span style={{ fontSize: '0.55rem', fontFamily: "'JetBrains Mono',monospace", color: '#fff', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Neural Sync</span>
+              </div>
+              <div style={{ display: 'flex', gap: 2 }}>
+                 {[...Array(3)].map((_,i) => <div key={i} style={{ width: 3, height: 3, borderRadius: '50%', background: '#4ade80', animation: `pulse-cyan 1.5s infinite ${i*0.3}s` }} />)}
+              </div>
             </div>
-            {[['Node', '■ Online', '#4ade80'], ['Phase 5', 'Grad-CAM ✓', '#00F5FF'], ['Phase 7', 'Demo+Chain ✓', '#00F5FF'], ['Model', 'ForenNet v2', '#a78bfa']].map(([k,v,c]) => (
-              <div key={k} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 2 }}>
-                <span style={{ fontSize: '0.57rem', color: '#52525b' }}>{k}</span>
-                <span style={{ fontSize: '0.57rem', color: c }}>{v}</span>
+            {[['Core Node', 'ONLINE', '#4ade80'], ['XAI Engine', 'READY', '#00F5FF'], ['Ledger P7', 'LOCKED', '#a78bfa'], ['Latency', '2ms', '#00f5ff']].map(([k,v,c]) => (
+              <div key={k} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 3 }}>
+                <span style={{ fontSize: '0.55rem', color: '#52525b', fontFamily: 'JetBrains Mono, monospace' }}>{k}</span>
+                <span style={{ fontSize: '0.55rem', color: c, fontWeight: 700, fontFamily: 'JetBrains Mono, monospace' }}>{v}</span>
               </div>
             ))}
           </div>
@@ -460,211 +625,476 @@ export default function App() {
       </aside>
 
       {/* ── MAIN ── */}
-      <main className="main-content" style={{ position: 'relative', zIndex: 1 }}>
-
-        {/* Header */}
-        <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18, padding: '0 4px' }}>
-          <div>
-            <h2 style={{ fontSize: '1.35rem', fontWeight: 700, letterSpacing: '-0.03em', marginBottom: 3 }}>Main Terminal</h2>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-              <span style={{ width: 5, height: 5, borderRadius: '50%', background: '#4ade80', display: 'inline-block', boxShadow: '0 0 6px #4ade80', animation: 'pulse-cyan 2s infinite' }} />
-              <span style={{ fontSize: '0.58rem', fontFamily: "'JetBrains Mono',monospace", color: '#52525b', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Live Monitoring · Phase 5+7 Active</span>
-            </div>
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
-            <button className="glass-panel" style={{ padding: 8, border: 'none', cursor: 'pointer', position: 'relative', borderRadius: 8 }}>
-              <Bell style={{ width: 15, height: 15, color: '#71717a' }} />
-              <span style={{ position: 'absolute', top: 6, right: 6, width: 5, height: 5, background: '#00F5FF', borderRadius: '50%', border: '2px solid #0A0E14', display: 'block' }} />
-            </button>
-            <div className="glass-panel" style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 12px', borderRadius: 10 }}>
-              <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'linear-gradient(135deg,#00F5FF,#0066ff)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, color: '#000', fontSize: '0.6rem' }}>AX</div>
-              <div>
-                <div style={{ fontSize: '0.72rem', fontWeight: 600, color: '#e4e4e7' }}>Operator 001</div>
-                <div style={{ fontSize: '0.58rem', color: '#52525b' }}>Senior Forensic Lead</div>
-              </div>
-            </div>
-          </div>
-        </header>
+      <main className="main-content" style={{ position: 'relative', zIndex: 1, paddingTop: 10 }}>
+        
+        {/* Header removed for cleaner UI */}
 
         {/* Stats Row */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5,1fr)', gap: 11, marginBottom: 16 }}>
           {[
-            { l: 'Scans Today', v: '1,284', c: '#00F5FF', i: Scan },
-            { l: 'Forgeries', v: '342', c: '#f87171', i: Zap },
-            { l: 'Accuracy', v: '99.8%', c: '#00F5FF', i: BrainCircuit },
-            { l: 'Grad-CAM', v: 'Phase 5', c: '#a78bfa', i: Eye },
-            { l: 'Blockchain', v: 'Phase 7', c: '#4ade80', i: Lock },
+            { l: 'Scans Today', v: liveStats.scans.toLocaleString(), c: '#00F5FF', i: Scan },
+            { l: 'Forgeries Found', v: liveStats.forgeries.toLocaleString(), c: '#f87171', i: Zap },
+            { l: 'Detection Rate', v: `${liveStats.integrity.toFixed(2)}%`, c: '#4ade80', i: BrainCircuit },
+            { l: 'Forensic Nodes', v: '5/5 ONLINE', c: '#a78bfa', i: Eye },
+            { l: 'Ledger Status', v: 'VERIFIED', c: '#4ade80', i: Lock },
           ].map(({ l, v, c, i: Icon }) => (
-            <div key={l} className="glass-panel" style={{ padding: 14 }}>
+            <motion.div key={l} whileHover={{ translateY: -2, boxShadow: `0 8px 24px ${c}11` }} className="glass-panel" style={{ padding: 14, overflow: 'hidden', position: 'relative', borderTop: `2px solid ${c}44` }}>
+               <div style={{ position: 'absolute', top: 0, right: 0, width: '40%', height: 2, background: `linear-gradient(90deg, transparent, ${c})`, opacity: 0.3 }} />
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
                 <Icon style={{ width: 12, height: 12, color: c }} />
                 <span style={{ fontSize: '0.55rem', fontFamily: "'JetBrains Mono',monospace", color: '#52525b', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{l}</span>
               </div>
-              <div style={{ fontSize: '1.2rem', fontFamily: "'Space Grotesk',sans-serif", fontWeight: 700, color: '#fff' }}>{v}</div>
-            </div>
+              <div style={{ fontSize: '1.25rem', fontFamily: "'Space Grotesk',sans-serif", fontWeight: 800, color: '#fff', textShadow: `0 0 10px ${c}22` }}>{v}</div>
+            </motion.div>
           ))}
         </div>
 
-        {/* Main Grid */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 310px', gap: 16, flex: 1, minHeight: 0, overflowY: 'auto' }} className="custom-scrollbar">
-
-          {/* Left */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-
-            {/* Upload */}
-            <div className="glass-panel" style={{ padding: 20, position: 'relative', overflow: 'hidden' }}>
-              <div style={{ position: 'absolute', top: -40, right: -40, width: 160, height: 160, background: 'radial-gradient(circle,rgba(0,245,255,.05) 0%,transparent 70%)', pointerEvents: 'none' }} />
-
-              {error && (
-                <div style={{ padding: 10, background: 'rgba(248,113,113,.08)', border: '1px solid rgba(248,113,113,.25)', borderRadius: 9, marginBottom: 14, fontSize: '0.7rem', color: '#f87171' }}>⚠️ {error}</div>
-              )}
-
-              <div className="upload-zone"
-                onDragOver={e => { e.preventDefault(); setIsDragOver(true); }}
-                onDragLeave={() => setIsDragOver(false)}
-                onDrop={e => { e.preventDefault(); setIsDragOver(false); if (e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]); }}
-                style={isDragOver ? { borderColor: '#00F5FF', background: 'rgba(0,245,255,.03)' } : {}}
-                onClick={() => !isScanning && fileInputRef.current?.click()}
-              >
-                <input ref={fileInputRef} type="file" hidden accept="image/*,.pdf" onChange={e => e.target.files[0] && handleFile(e.target.files[0])} />
-                <motion.div whileHover={{ scale: 1.05 }} style={{ padding: 16, borderRadius: '50%', background: 'rgba(0,245,255,.07)', border: '1px solid rgba(0,245,255,.15)', marginBottom: 14 }}>
-                  <Upload style={{ width: 28, height: 28, color: '#00F5FF' }} />
-                </motion.div>
-                <h3 style={{ fontSize: '0.95rem', marginBottom: 5, fontWeight: 600 }}>Initialize Forensic Scan</h3>
-                <p style={{ fontSize: '0.7rem', color: '#52525b', marginBottom: 18, textAlign: 'center', maxWidth: 340, lineHeight: 1.6 }}>
-                  Upload Aadhaar, certificates, PAN cards, or resumes (JPG, PNG, PDF). Grad-CAM XAI + ELA forensics applied automatically.
-                </p>
-
-                {/* Blockchain toggle */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 16 }}
-                  onClick={e => { e.stopPropagation(); setRegisterOnChain(!registerOnChain); }}>
-                  <div style={{ width: 28, height: 15, borderRadius: 99, background: registerOnChain ? '#00F5FF' : 'rgba(55,65,81,.6)', cursor: 'pointer', position: 'relative', transition: 'background .2s', border: '1px solid rgba(55,65,81,.6)' }}>
-                    <div style={{ width: 11, height: 11, borderRadius: '50%', background: '#fff', position: 'absolute', top: 1, left: registerOnChain ? 15 : 1, transition: 'left .2s' }} />
+        {/* Tab Content Wrapper */}
+        <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+          
+          {activeTab === 'dashboard' && (
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 310px', gap: 16, flex: 1, minHeight: 0, overflowY: 'auto' }} className="custom-scrollbar">
+              {/* Left */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                {/* Upload Zone */}
+                <div className="glass-panel glow-pulse" style={{ padding: 20, position: 'relative', overflow: 'hidden' }}>
+                  <div style={{ position: 'absolute', top: -40, right: -40, width: 160, height: 160, background: 'radial-gradient(circle,rgba(0,245,255,.05) 0%,transparent 70%)', pointerEvents: 'none' }} />
+                  {error && <div style={{ padding: 10, background: 'rgba(248,113,113,.08)', border: '1px solid rgba(248,113,113,.25)', borderRadius: 9, marginBottom: 14, fontSize: '0.7rem', color: '#f87171' }}>⚠️ {error}</div>}
+                  <div className={`upload-zone ${isScanning ? 'radar-scan' : ''}`} onClick={() => !isScanning && fileInputRef.current?.click()}
+                    onDragOver={e => { e.preventDefault(); setIsDragOver(true); }} onDragLeave={() => setIsDragOver(false)}
+                    onDrop={e => { e.preventDefault(); setIsDragOver(false); if (e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]); }}
+                    style={{
+                       ...(isDragOver ? { borderColor: '#00F5FF', background: 'rgba(0,245,255,.03)' } : {}),
+                       position: 'relative',
+                       minHeight: 220
+                    }}>
+                    {isScanning && <div className="scanner-laser" />}
+                    <input ref={fileInputRef} type="file" hidden accept="image/*,.pdf" onChange={e => e.target.files[0] && handleFile(e.target.files[0])} />
+                    <motion.div animate={isScanning ? { scale: [1, 1.1, 1], rotate: [0, 5, -5, 0] } : {}} transition={{ repeat: Infinity, duration: 2 }} style={{ padding: 16, borderRadius: '50%', background: 'rgba(0,245,255,.07)', border: '1px solid rgba(0,245,255,.15)', marginBottom: 14 }}><Upload style={{ width: 28, height: 28, color: '#00F5FF' }} /></motion.div>
+                    <h3 style={{ fontSize: '0.95rem', marginBottom: 5, fontWeight: 600 }}>{isScanning ? 'Scanning Bitstream...' : 'Forensic Node Initialize'}</h3>
+                    <p style={{ fontSize: '0.65rem', color: '#52525b', textAlign: 'center', maxWidth: 320 }}>{isScanning ? 'Deconstructing document structure and checking for pixel-level anomalies' : 'Drag files or click to initiate bit-by-bit scanning.'}</p>
                   </div>
-                  <span style={{ fontSize: '0.65rem', color: registerOnChain ? '#00F5FF' : '#52525b', cursor: 'pointer' }}>Register on Blockchain Ledger</span>
+                  <AnimatePresence>
+                    {isScanning && (
+                      <motion.div initial={{ opacity: 0, y: 7 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} style={{ marginTop: 12 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                          <span style={{ fontSize: '0.58rem', fontFamily: "'JetBrains Mono',monospace", color: '#00F5FF', textTransform: 'uppercase' }}>Scan In Progress...</span>
+                          <span style={{ fontSize: '0.58rem', fontFamily: "'JetBrains Mono',monospace", color: '#00F5FF' }}>{Math.floor(scanProgress)}%</span>
+                        </div>
+                        <div className="progress-track" style={{ height: 4 }}><motion.div className="progress-fill" animate={{ width: `${scanProgress}%` }} transition={{ duration: 0.1 }} /></div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+
+                  {/* Options */}
+                  {!isScanning && (
+                    <div style={{ display: 'flex', gap: 14, marginTop: 15, justifyContent: 'center' }}>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: 7, cursor: 'pointer', opacity: 0.8 }}>
+                        <input type="checkbox" checked={registerOnChain} onChange={e => setRegisterOnChain(e.target.checked)} style={{ accentColor: '#00F5FF' }} />
+                        <span style={{ fontSize: '0.62rem', color: '#71717a', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Register on Blockchain</span>
+                      </label>
+                       <label style={{ display: 'flex', alignItems: 'center', gap: 7, cursor: 'pointer', opacity: 0.8 }}>
+                        <input type="checkbox" checked={true} readOnly style={{ accentColor: '#a78bfa' }} />
+                        <span style={{ fontSize: '0.62rem', color: '#71717a', textTransform: 'uppercase', letterSpacing: '0.05em' }}>DeepXAI Analysis</span>
+                      </label>
+                    </div>
+                  )}
                 </div>
 
-                <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} className="btn-primary"
-                  onClick={e => { e.stopPropagation(); !isScanning && fileInputRef.current?.click(); }} disabled={isScanning}>
-                  {isScanning
-                    ? <><Activity style={{ width: 13, height: 13, animation: 'spin 1s linear infinite' }} /> Running Agents...</>
-                    : <><Fingerprint style={{ width: 13, height: 13 }} /> Command Upload</>}
-                </motion.button>
-              </div>
-
-              <AnimatePresence>
-                {isScanning && (
-                  <motion.div initial={{ opacity: 0, y: 7 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} style={{ marginTop: 12 }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-                      <span style={{ fontSize: '0.58rem', fontFamily: "'JetBrains Mono',monospace", color: '#00F5FF', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Bit-Scan + Grad-CAM In Progress</span>
-                      <span style={{ fontSize: '0.58rem', fontFamily: "'JetBrains Mono',monospace", color: '#00F5FF' }}>{Math.floor(scanProgress)}%</span>
-                    </div>
-                    <div className="progress-track" style={{ height: 5 }}>
-                      <motion.div className="progress-fill" animate={{ width: `${scanProgress}%` }} transition={{ duration: 0.1 }} style={{ height: '100%' }} />
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
-
-            {/* Agent Monitor — 5 agents now */}
-            <div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 9 }}>
-                <Zap style={{ width: 12, height: 12, color: '#00F5FF' }} />
-                <span style={{ fontSize: '0.58rem', fontFamily: "'JetBrains Mono',monospace", color: '#52525b', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Multi-Agent Pipeline (Phase 1–6)</span>
-              </div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5,1fr)', gap: 9 }}>
-                <AgentCard agent="OCR Parse" status={agentStatuses.ocr} progress={gp('ocr')} score={gs('ocr')} />
-                <AgentCard agent="Forensic ELA" status={agentStatuses.image} progress={gp('image')} score={gs('image')} />
-                <AgentCard agent="Signature ORB" status={agentStatuses.sig} progress={gp('sig')} score={gs('sig')} />
-                <AgentCard agent="Grad-CAM XAI" status={agentStatuses.gradcam} progress={gp('gradcam')} />
-                <AgentCard agent="Decision Engine" status={agentStatuses.decision} progress={gp('decision')} />
-              </div>
-            </div>
-
-            {/* Results */}
-            <AnimatePresence>
-              {result && <ResultsPanel result={result} />}
-            </AnimatePresence>
-
-            {/* Logs */}
-            <div className="glass-panel custom-scrollbar" style={{ padding: 16, maxHeight: 160, overflowY: 'auto' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <Terminal style={{ width: 12, height: 12, color: '#00F5FF' }} />
-                  <span style={{ fontSize: '0.62rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Real-Time Logs</span>
+                {/* Agents */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5,1fr)', gap: 9 }}>
+                  <AgentCard agent="OCR" status={agentStatuses.ocr} progress={gp('ocr')} score={gs('ocr')} />
+                  <AgentCard agent="ELA" status={agentStatuses.image} progress={gp('image')} score={gs('image')} />
+                  <AgentCard agent="ORB" status={agentStatuses.sig} progress={gp('sig')} score={gs('sig')} />
+                  <AgentCard agent="XAI" status={agentStatuses.gradcam} progress={gp('gradcam')} />
+                  <AgentCard agent="LEDGER" status={agentStatuses.decision} progress={gp('decision')} />
                 </div>
-                <span style={{ fontSize: '0.52rem', fontFamily: "'JetBrains Mono',monospace", color: '#3f3f46' }}>Buffer: 1024KB</span>
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-                <div className="log-line"><span className="log-time">[INIT]</span><span>ForenNet v2 kernels online. Phases 1-7 active.</span></div>
-                <div className="log-line"><span className="log-time">[P5]</span><span>ResNet50 Grad-CAM engine loaded. CUDA: {typeof window !== 'undefined' ? 'auto-detect' : 'N/A'}</span></div>
-                <div className="log-line"><span className="log-time">[P7]</span><span>6 demo presets loaded. Blockchain ledger: ready.</span></div>
-                {isScanning && <div className="log-line log-active"><span className="log-time">[NOW]</span><span style={{ animation: 'pulse-cyan 1s infinite' }}>Forensic pipeline + Grad-CAM executing...</span></div>}
-                {result && (
-                  <div className="log-line" style={{ color: result.verdict==='FORGED' ? '#f87171' : result.verdict==='AUTHENTIC' ? '#4ade80' : '#facc15' }}>
-                    <span className="log-time">[RESULT]</span>
-                    <span>VERDICT: {result.verdict} | Score: {result.composite_integrity_score?.toFixed(1)} | {result.case_id}</span>
+
+                {/* Results/Logs */}
+                <AnimatePresence>{result && <ResultsPanel result={result} />}</AnimatePresence>
+                <div className="glass-panel" style={{ padding: 14, height: 140, display: 'flex', flexDirection: 'column' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                    <div style={{ fontSize: '0.6rem', color: '#52525b', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Telemetry Terminal Output</div>
+                    <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#4ade80', boxShadow: '0 0 8px #4ade80', animation: 'pulse-cyan 2s infinite' }} />
                   </div>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* Right */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            <div className="glass-panel custom-scrollbar" style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: 16, maxHeight: 380 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 12 }}>
-                <History style={{ width: 12, height: 12, color: '#00F5FF' }} />
-                <span style={{ fontSize: '0.62rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Recent Archive</span>
-              </div>
-              <div className="custom-scrollbar" style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 7 }}>
-                {[
-                  { id:'D001', name:'Aadhaar_Rajesh.jpg', type:'Aadhaar', v:'TAMPERED' },
-                  { id:'D002', name:'BTech_VTU_2021.pdf', type:'Certificate', v:'TAMPERED' },
-                  { id:'D003', name:'Resume_Arjun.pdf', type:'Resume', v:'SUSPICIOUS' },
-                  { id:'D004', name:'HDFC_Cheque.jpg', type:'Cheque', v:'TAMPERED' },
-                  { id:'D005', name:'PAN_Priya.jpg', type:'PAN', v:'SECURE' },
-                  { id:'D006', name:'Passport_P1234.jpg', type:'Passport', v:'TAMPERED' },
-                ].map(item => (
-                  <motion.div key={item.id} whileHover={{ x: 2 }}
-                    style={{ padding: 9, border: '1px solid rgba(55,65,81,.45)', borderRadius: 9, cursor: 'pointer', background: 'rgba(0,0,0,.2)' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 5 }}>
-                      <span style={{ fontSize: '0.52rem', fontFamily: "'JetBrains Mono',monospace", color: '#3f3f46' }}>#{item.id}</span>
-                      <span className={item.v==='SECURE' ? 'badge-secure' : item.v==='SUSPICIOUS' ? 'badge-active' : 'badge-tampered'}>{item.v}</span>
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-                      <div style={{ width: 27, height: 27, borderRadius: 6, background: 'rgba(55,65,81,.3)', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        <FileSearch style={{ width: 13, height: 13, color: '#52525b' }} />
+                  <div className="custom-scrollbar" style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 3 }}>
+                    {isScanning && <div className="log-line log-active"><span>[DMA]</span><span>Bitstream analysis executing...</span></div>}
+                    {result && <div className="log-line" style={{ color: scoreColor(result.composite_integrity_score) }}><span>[VER]</span><span>CASE_{result.case_id} COMPLETED // {result.verdict}</span></div>}
+                    {terminalLogs.map((log, index) => (
+                      <div key={index} className="log-line" style={{ fontSize: '0.62rem' }}>
+                        <span style={{ color: '#3f3f46', marginRight: 8 }}>[{log.t}]</span>
+                        <span style={{ color: log.s === 'SYS' ? '#00f5ff' : '#52525b', marginRight: 8 }}>[{log.s}]</span>
+                        <span style={{ color: '#a1a1aa' }}>{log.m}</span>
                       </div>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: '0.67rem', fontWeight: 600, color: '#d4d4d8', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.name}</div>
-                        <div style={{ fontSize: '0.52rem', color: '#52525b' }}>{item.type}</div>
-                      </div>
-                    </div>
-                  </motion.div>
-                ))}
-              </div>
-            </div>
-
-            {/* Precision */}
-            <div className="glass-panel" style={{ padding: 16, background: 'linear-gradient(135deg,rgba(0,245,255,.05) 0%,rgba(17,24,39,.5) 100%)' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 9 }}>
-                <div style={{ padding: 8, background: '#00F5FF', borderRadius: 8, flexShrink: 0 }}>
-                  <BrainCircuit style={{ width: 14, height: 14, color: '#000' }} />
-                </div>
-                <div>
-                  <div style={{ fontSize: '0.5rem', fontFamily: "'JetBrains Mono',monospace", color: '#00F5FF', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 2 }}>Global Precision</div>
-                  <div style={{ fontSize: '1.5rem', fontFamily: "'Space Grotesk',sans-serif", fontWeight: 700, lineHeight: 1 }}>99.82%</div>
+                    ))}
+                  </div>
                 </div>
               </div>
-              <div style={{ display: 'flex', gap: 3 }}>
-                {[...Array(10)].map((_, i) => (
-                  <div key={i} style={{ flex: 1, height: 3, borderRadius: 99, background: i < 9 ? '#00F5FF' : 'rgba(0,245,255,.15)', boxShadow: i < 9 ? '0 0 4px rgba(0,245,255,.3)' : 'none' }} />
-                ))}
+
+              {/* Right Sidebar */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                <div className="glass-panel custom-scrollbar" style={{ padding: 16, flex: 1, maxHeight: 400, overflowY: 'auto' }}>
+                  <div style={{ fontSize: '0.62rem', fontWeight: 700, textTransform: 'uppercase', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <History size={12} color="#00F5FF" /> Recent Ledger Hits
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    {[{ id:'D01', n:'Aadhaar_X.png', v:'FORGED' }, { id:'D02', n:'MTech_VTU.pdf', v:'SECURE' }, { id:'D03', n:'Sign_Scan.jpg', v:'TAMPERED' }].map(it => (
+                      <div key={it.id} style={{ padding: 10, background: 'rgba(255,255,255,.02)', borderRadius: 10, border: '1px solid rgba(255,255,255,.05)' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                          <span style={{ fontSize: '10px', fontWeight: 600 }}>{it.n}</span>
+                          <span style={{ fontSize: '8px', color: it.v==='SECURE'?'#4ade80':'#f87171' }}>{it.v}</span>
+                        </div>
+                        <div style={{ fontSize: '8px', color: '#3f3f46' }}>ID: {it.id}1284_FS</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                {/* System Health Component */}
+                <div className="glass-panel" style={{ padding: 18 }}>
+                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 15 }}>
+                      <Cpu size={14} color="#00F5FF" />
+                      <span style={{ fontSize: '0.6rem', fontWeight: 600, color: '#fff', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Neural Node Health</span>
+                   </div>
+                   <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                      {[
+                        { l: 'GPU Load (RTX 4090)', v: systemHealth.gpu, c: '#00F5FF' },
+                        { l: 'Neural Network Weighting', v: systemHealth.neural, c: '#a78bfa' },
+                        { l: 'Memory Buffer', v: systemHealth.ram, c: '#4ade80' }
+                      ].map(s => (
+                        <div key={s.l}>
+                           <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.55rem', color: '#52525b', marginBottom: 4 }}>
+                              <span>{s.l}</span>
+                              <span style={{ color: s.c }}>{s.v}%</span>
+                           </div>
+                           <div className="progress-track" style={{ height: 3 }}>
+                              <motion.div className="progress-fill" initial={{ width: 0 }} animate={{ width: `${s.v}%` }} style={{ background: s.c, boxShadow: `0 0 10px ${s.c}44` }} />
+                           </div>
+                        </div>
+                      ))}
+                   </div>
+                </div>
+
+                <div className="glass-panel" style={{ padding: 22, background: 'linear-gradient(135deg,rgba(0,245,255,.05),transparent)' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                    <div>
+                      <div style={{ fontSize: '0.55rem', color: '#00F5FF', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Global Intelligence</div>
+                      <div style={{ fontSize: '1.8rem', fontWeight: 800, color: '#fff' }}>{liveStats.integrity.toFixed(3)}%</div>
+                    </div>
+                    <div style={{ textAlign: 'right' }}>
+                       <div style={{ fontSize: '0.55rem', color: '#52525b', marginBottom: 4 }}>Uptime</div>
+                       <div style={{ fontSize: '0.8rem', fontFamily: 'JetBrains Mono, monospace', color: '#4ade80' }}>99.999%</div>
+                    </div>
+                  </div>
+                  
+                  {/* Active Traffic Ticker */}
+                  <div style={{ borderTop: '1px solid rgba(255,255,255,.05)', paddingTop: 12 }}>
+                     <div style={{ fontSize: '0.5rem', color: '#3f3f46', marginBottom: 10, textTransform: 'uppercase' }}>Live Data Packets</div>
+                     <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                        {liveStats.packets.map(p => (
+                          <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.6rem', fontFamily: 'JetBrains Mono, monospace' }}>
+                             <span style={{ color: '#00F5FF' }}>PACKET_{p.id}</span>
+                             <span style={{ color: '#52525b' }}>{p.action}</span>
+                             <span style={{ color: '#3f3f46' }}>{p.time}</span>
+                          </div>
+                        ))}
+                     </div>
+                  </div>
+                </div>
               </div>
             </div>
-          </div>
+          )}
+          {activeTab === 'network' && (
+            <div className="glass-panel" style={{ flex: 1, padding: 24, display: 'flex', flexDirection: 'column', gap: 20 }}>
+                <SectionHeader icon={Globe} title="Global Forensic Triage" sub="Distributed neural processing and threat intelligence network" />
+                
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: 20, flex: 1, minHeight: 0 }}>
+                    {/* Live Map Visualization */}
+                    <div className="glass-panel" style={{ position: 'relative', background: 'rgba(0,0,0,.4)', border: '1px solid rgba(0,245,255,.1)', overflow: 'hidden', padding: 0 }}>
+                        <div style={{ position: 'absolute', top: 16, left: 20, zIndex: 10 }}>
+                           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                              <div className="pulse-cyan" style={{ width: 8, height: 8, borderRadius: '50%', background: '#00F5FF' }} />
+                              <span style={{ fontSize: '0.7rem', fontWeight: 800, color: '#fff', letterSpacing: '0.1em', fontFamily: 'JetBrains Mono' }}>CORE NETWORK TRAFFIC</span>
+                           </div>
+                           <div style={{ fontSize:'0.55rem', color:'#52525b', marginTop:4 }}>LATENCY: 14ms // ACTIVE_NODES: 128</div>
+                        </div>
+                        
+                        {/* Map Grid Background */}
+                        <div style={{ position: 'absolute', inset: 0, opacity: 0.1, background: 'linear-gradient(90deg, #00F5FF 1px, transparent 1px) 0 0 / 40px 40px, linear-gradient(#00F5FF 1px, transparent 1px) 0 0 / 40px 40px' }} />
+                        
+                        <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                             <svg viewBox="0 0 800 400" style={{ width: '92%', height: 'auto' }}>
+                                {/* Data Flow Pathways */}
+                                <path d="M150,220 L380,180 L650,250" fill="none" stroke="#00F5FF" strokeWidth="0.5" strokeDasharray="4,8" className="dash-move" opacity="0.4" />
+                                <path d="M380,180 L420,100" fill="none" stroke="#f87171" strokeWidth="0.5" strokeDasharray="2,4" />
+                                
+                                {/* Major Forensic Hubs */}
+                                {[
+                                  {x:150, y:220, l:'Delhi-NCR Hub', s:'ONLINE', c:'#4ade80'}, 
+                                  {x:380, y:180, l:'Central Triage (DB-01)', s:'SCANNING', c:'#00F5FF'}, 
+                                  {x:650, y:250, l:'East Asia Edge', s:'STANDBY', c:'#71717a'},
+                                  {x:420, y:100, l:'US-East Cluster', s:'THREAT_DETECTED', c:'#f87171'}
+                                ].map((p,i) => (
+                                  <g key={i}>
+                                     <circle cx={p.x} cy={p.y} r="4" fill={p.c} />
+                                     <circle cx={p.x} cy={p.y} r="12" fill="none" stroke={p.c} strokeWidth="1" className="ping-ring" style={{ animationDelay: `${i*0.8}s` }} opacity="0.5" />
+                                     <text x={p.x+10} y={p.y-5} style={{ fill:'#fff', fontSize:10, fontWeight:700, fontFamily:'Space Grotesk' }}>{p.l}</text>
+                                     <text x={p.x+10} y={p.y+8} style={{ fill:p.c, fontSize:7, fontFamily:'JetBrains Mono', fontWeight:600 }}>{p.s}</text>
+                                  </g>
+                                ))}
+                             </svg>
+                        </div>
+                        
+                        {/* Legend */}
+                        <div style={{ position: 'absolute', bottom: 60, left: 20, display: 'flex', gap: 15 }}>
+                           <div style={{ display:'flex', alignItems:'center', gap:5 }}><div style={{ width:6, height:6, background:'#4ade80', borderRadius:1 }} /><span style={{ fontSize:8, color:'#71717a' }}>SECURE HUB</span></div>
+                           <div style={{ display:'flex', alignItems:'center', gap:5 }}><div style={{ width:6, height:6, background:'#f87171', borderRadius:1 }} /><span style={{ fontSize:8, color:'#71717a' }}>TAMPER ALERT</span></div>
+                           <div style={{ display:'flex', alignItems:'center', gap:5 }}><div style={{ width:6, height:6, background:'#00F5FF', borderRadius:1 }} /><span style={{ fontSize:8, color:'#71717a' }}>ACTIVE PIPELINE</span></div>
+                        </div>
+
+                        {/* Live Log Ticker */}
+                        <div style={{ position: 'absolute', bottom: 0, width: '100%', background: 'rgba(0,10,20,.8)', backdropFilter:'blur(10px)', padding: '10px 20px', borderTop: '1px solid rgba(0,245,255,.2)' }}>
+                           <div style={{ display:'flex', gap:20, whiteSpace:'nowrap' }} className="ticker-animate">
+                              <span style={{ fontSize: '0.65rem', color: '#00F5FF', fontFamily: 'JetBrains Mono' }}>[21:40] NODE_DELHI: VALIDATING_PASSPORT_B21... OK</span>
+                              <span style={{ fontSize: '0.65rem', color: '#f87171', fontFamily: 'JetBrains Mono' }}>[21:42] NODE_US_EAST: ALERT_ANOMALY_IN_SIGNATURE_VECTOR</span>
+                              <span style={{ fontSize: '0.65rem', color: '#4ade80', fontFamily: 'JetBrains Mono' }}>[21:44] BLOCKCHAIN_SYNC: BLOCK_HEIGHT_#88219_CONFIRMED</span>
+                           </div>
+                        </div>
+                    </div>
+
+                    {/* Threat Intelligence column */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                        {/* Neural Performance Board */}
+                        <div className="glass-panel" style={{ padding: 18, background: 'rgba(0,10,20,.6)' }}>
+                           <div style={{ fontSize: '0.65rem', fontWeight: 800, color: '#fff', marginBottom: 15, display:'flex', alignItems:'center', gap:8 }}>
+                               <BrainCircuit size={14} color="#00F5FF" /> NEURAL CLUSTER HEALTH
+                           </div>
+                           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                              {[
+                                { n: 'OCR ENGINE (P-1)', v: 92, c: '#00F5FF' },
+                                { n: 'ELA ANALYZER (P-2)', v: 74, c: '#4ade80' },
+                                { n: 'ORB COMPARATOR (P-3)', v: 48, c: '#a78bfa' },
+                                { n: 'NEURAL XAI (P-4)', v: 88, c: '#00F5FF' }
+                              ].map(node => (
+                                <div key={node.n}>
+                                   <div style={{ display:'flex', justifyContent:'space-between', marginBottom:5 }}>
+                                      <span style={{ fontSize:'0.55rem', color:'#52525b', fontFamily:'JetBrains Mono' }}>{node.n}</span>
+                                      <span style={{ fontSize:'0.55rem', color:node.c, fontWeight:800 }}>{node.v}%</span>
+                                   </div>
+                                   <div className="progress-track" style={{ height:4, background:'rgba(255,255,255,.05)' }}>
+                                      <motion.div initial={{ width:0 }} animate={{ width:`${node.v}%` }} className="progress-fill" style={{ background:node.c, height:'100%', boxShadow: `0 0 10px ${node.c}44` }} />
+                                   </div>
+                                </div>
+                              ))}
+                           </div>
+                        </div>
+
+                        {/* Recent Threat Vectors */}
+                        <div className="glass-panel" style={{ padding: 18, flex: 1, borderLeft:'2px solid rgba(248,113,113,.3)' }}>
+                           <div style={{ fontSize: '0.65rem', fontWeight: 800, color: '#f87171', marginBottom: 15, display:'flex', alignItems:'center', gap:8 }}>
+                               <Zap size={14} color="#f87171" /> LIVE THREAT VECTORS
+                           </div>
+                           <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+                              {[
+                                { t: 'Synthetic Texture Injection', m: 'AI_DETECTION_P4' },
+                                { t: 'MetaData Stripping Attack', m: 'HDR_FORENSICS' },
+                                { t: 'Differential Sig-Tampering', m: 'ORB_MISMATCH' }
+                              ].map((v, i) => (
+                                <div key={i} style={{ padding:10, background:'rgba(248,113,113,.05)', border:'1px solid rgba(248,113,113,.15)', borderRadius:8 }}>
+                                   <div style={{ fontSize:'0.65rem', color:'#f87171', fontWeight:700 }}>{v.t}</div>
+                                   <div style={{ fontSize:'0.5rem', color:'#71717a', marginTop:3, fontFamily:'JetBrains Mono' }}>TRIGGERED: {v.m}</div>
+                                </div>
+                              ))}
+                           </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+          )}
+
+
+          {activeTab === 'logs' && (
+            <div className="glass-panel custom-scrollbar" style={{ flex: 1, padding: 24, overflowY: 'auto' }}>
+               <SectionHeader icon={Terminal} title="System Telemetry & Logs" sub="Real-time forensic agent communication" />
+               <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 24, fontFamily: "'JetBrains Mono',monospace", fontSize: 12 }}>
+                  {[...Array(12)].map((_, i) => (
+                    <div key={i} style={{ display: 'flex', gap: 16, padding: '8px 12px', borderBottom: '1px solid rgba(255,255,255,.03)' }}>
+                      <span style={{ color: '#3f3f46' }}>[{new Date().toLocaleTimeString()}]</span>
+                      <span style={{ color: '#a78bfa' }}>AGENT_0{i%6}:</span>
+                      <span style={{ color: '#d4d4d8' }}>Packet analysis chunk_{i*2} verified with SHA-256... SUCCESS</span>
+                    </div>
+                  ))}
+               </div>
+            </div>
+          )}
+
+          {activeTab === 'archive' && (() => {
+            const CASES = [
+              { id:'FS-9821', file:'aadhaar_scan_67.pdf',    type:'National ID',  v:'AUTHENTIC',  s:98.2, tx:'0x8f2d...41b0', t:'10 Mar · 14:22', flags:0 },
+              { id:'FS-9822', file:'degree_certificate.png', type:'Academic Doc', v:'FORGED',     s:22.4, tx:'0x1a9e...e932', t:'10 Mar · 15:45', flags:7 },
+              { id:'FS-9823', file:'signature_v2.jpg',       type:'Signature',    v:'SUSPICIOUS', s:56.8, tx:'0x3c7b...fb12', t:'11 Mar · 09:12', flags:3 },
+              { id:'FS-9824', file:'pan_card_verify.pdf',    type:'National ID',  v:'AUTHENTIC',  s:99.1, tx:'0x7e1a...22d8', t:'11 Mar · 11:30', flags:0 },
+              { id:'FS-9825', file:'passport_bio.jpg',       type:'Travel Doc',   v:'AUTHENTIC',  s:97.4, tx:'0xf4b2...11c4', t:'12 Mar · 10:05', flags:0 },
+              { id:'FS-9826', file:'rental_agreement.pdf',   type:'Legal Doc',    v:'FORGED',     s:18.2, tx:'0x0d22...a991', t:'12 Mar · 16:20', flags:9 },
+            ];
+            const filtered = archiveFilter === 'ALL' ? CASES : CASES.filter(c => c.v === archiveFilter);
+            const vkey = v => v.toLowerCase();
+            const dotColor = { AUTHENTIC:'#4ade80', FORGED:'#f87171', SUSPICIOUS:'#facc15' };
+            const stripeGrad = { AUTHENTIC:'linear-gradient(180deg,#4ade80,transparent)', FORGED:'linear-gradient(180deg,#f87171,transparent)', SUSPICIOUS:'linear-gradient(180deg,#facc15,transparent)' };
+            
+            return (
+              <div style={{ flex:1, display:'flex', flexDirection:'column', gap:14, minHeight:0, overflow:'hidden' }}>
+                {/* ─── Header + Filters ─── */}
+                <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', flexShrink:0, marginTop: 10 }}>
+                  <div>
+                    <div style={{ fontSize:'1rem', fontWeight:700, color:'#fff', marginBottom:4 }}>Forensic Evidence Ledger</div>
+                    <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+                      <div className="synced-dot" />
+                      <span style={{ fontFamily:'JetBrains Mono,monospace', fontSize:'0.55rem', color:'#3f3f46' }}>
+                        CHAIN_ID: ETH-MAINNET · BLOCK: 19,482,311 · LEDGER SYNCED
+                      </span>
+                    </div>
+                  </div>
+                  <div style={{ display:'flex', gap:6 }}>
+                    {['ALL','FORGED','SUSPICIOUS','AUTHENTIC'].map(f => (
+                      <button key={f} onClick={() => setArchiveFilter(f)} style={{
+                        fontSize:'0.5rem', padding:'5px 14px', borderRadius:7,
+                        border:'1px solid',
+                        borderColor: archiveFilter === f ? '#00F5FF' : 'rgba(55,65,81,.4)',
+                        background: archiveFilter === f ? 'rgba(0,245,255,.08)' : 'transparent',
+                        color: archiveFilter === f ? '#00F5FF' : '#52525b',
+                        cursor:'pointer', textTransform:'uppercase', letterSpacing:'0.1em', transition:'all .2s',
+                      }}>{f}</button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* ─── Case Rows ─── */}
+                <div className="custom-scrollbar" style={{ flex:1, overflowY:'auto', display:'flex', flexDirection:'column', gap:8, paddingRight:4, paddingBottom:8 }}>
+                  {filtered.length === 0 ? (
+                    <div style={{ textAlign:'center', padding:'60px 0', color:'#3f3f46', fontFamily:'JetBrains Mono,monospace', fontSize:'0.7rem', textTransform:'uppercase', letterSpacing:'0.15em' }}>
+                      No cases match filter: {archiveFilter}
+                    </div>
+                  ) : filtered.map((c, i) => (
+                    <div key={c.id} className={`archive-card archive-card-${vkey(c.v)}`}
+                      style={{ opacity:0, animation:`fadeSlideIn 0.35s ease ${i * 0.07}s forwards` }}>
+
+                      {/* Left colour stripe */}
+                      <div className="archive-stripe" style={{ background: stripeGrad[c.v] }} />
+
+                      {/* File info */}
+                      <div style={{ padding:'12px 16px', minWidth:0, overflow:'hidden' }}>
+                        <div style={{ display:'flex', alignItems:'center', gap:6, marginBottom:4 }}>
+                          <span style={{ fontFamily:'JetBrains Mono,monospace', fontSize:'0.68rem', color:'#00F5FF', fontWeight:800, textShadow:'0 0 12px rgba(0,245,255,.6)', flexShrink:0 }}>{c.id}</span>
+                          <span style={{ fontSize:'0.42rem', color:'#3f3f46', padding:'2px 6px', border:'1px solid rgba(55,65,81,.4)', borderRadius:4, textTransform:'uppercase', whiteSpace:'nowrap', flexShrink:0 }}>{c.type}</span>
+                        </div>
+                        <div style={{ fontSize:'0.7rem', color:'#d4d4d8', fontWeight:500, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{c.file}</div>
+                        <div style={{ fontSize:'0.48rem', color:'#3f3f46', marginTop:2, fontFamily:'JetBrains Mono,monospace' }}>⏱ {c.t}</div>
+                      </div>
+
+                      {/* Verdict */}
+                      <div style={{ padding:'0 12px' }}>
+                        <div style={{ display:'flex', alignItems:'center', gap:6 }}>
+                          <div className={`pulse-dot pulse-dot-${vkey(c.v)}`} />
+                          <span style={{ fontSize:'0.6rem', fontWeight:800, color:dotColor[c.v], letterSpacing:'0.05em' }}>{c.v}</span>
+                        </div>
+                      </div>
+
+                      {/* Integrity bar */}
+                      <div style={{ padding:'0 12px' }}>
+                        <div style={{ fontSize:'0.45rem', color:'#52525b', textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:5 }}>Integrity</div>
+                        <div style={{ display:'flex', alignItems:'center', gap:6 }}>
+                          <div style={{ flex:1, height:4, background:'rgba(39,39,42,.8)', borderRadius:99, overflow:'hidden' }}>
+                            <div style={{ height:'100%', width:`${c.s}%`, background:scoreColor(c.s), borderRadius:99, animation:`bar-fill 0.9s ease ${i*0.07+0.3}s both` }} />
+                          </div>
+                          <span style={{ fontSize:'0.68rem', fontWeight:800, color:scoreColor(c.s), minWidth:34, textAlign:'right' }}>{c.s}%</span>
+                        </div>
+                      </div>
+
+                      {/* Anomaly flags */}
+                      <div style={{ textAlign:'center', padding:'0 6px' }}>
+                        <div style={{ fontSize:'0.42rem', color:'#52525b', textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:4 }}>Anomalies</div>
+                        <div className={c.flags > 0 ? 'flag-danger' : 'flag-safe'} style={{ fontSize:'1rem', fontWeight:900 }}>
+                          {c.flags > 0 ? `⚠ ${c.flags}` : '✓'}
+                        </div>
+                      </div>
+
+                      {/* On-chain hash */}
+                      <div style={{ textAlign:'center', padding:'0 6px' }}>
+                        <div style={{ fontSize:'0.42rem', color:'#52525b', textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:4 }}>On-Chain</div>
+                        <div style={{ fontFamily:'JetBrains Mono,monospace', fontSize:'0.48rem', color:'#52525b' }}>{c.tx}</div>
+                      </div>
+
+                      {/* Inspect */}
+                      <div style={{ padding:'0 14px' }}>
+                        <button className={`inspect-btn inspect-btn-${vkey(c.v)}`}>Inspect</button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <style>{`
+                  @keyframes fadeSlideIn {
+                    from { opacity: 0; transform: translateY(10px); }
+                    to   { opacity: 1; transform: translateY(0); }
+                  }
+                `}</style>
+
+              </div>
+            );
+          })()}
+
+          {activeTab === 'settings' && (
+             <div className="glass-panel custom-scrollbar" style={{ flex: 1, padding: 30, overflowY: 'auto' }}>
+                <SectionHeader icon={Settings} title="Terminal Configuration" sub="Customize forensic agent sensitivity and hardware orchestration" />
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, marginTop: 32 }}>
+                   {/* Forensic Controls */}
+                   <div className="glass-panel" style={{ padding: 20, background: 'rgba(0,0,0,.2)' }}>
+                      <div style={{ fontSize: '0.65rem', color: '#00F5FF', marginBottom: 15, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Forensic Thresholds</div>
+                      {[
+                        { l: 'ELA Sensitivity', v: 'High (8.2)', p: 82, c: '#00F5FF' },
+                        { l: 'OCR Confidence Filter', v: '95%', p: 95, c: '#4ade80' },
+                        { l: 'Anomaly Flagging Bias', v: 'Strict', p: 70, c: '#f87171' },
+                        { l: 'XAI Grad-CAM Resolution', v: '512px', p: 50, c: '#a78bfa' }
+                      ].map(s => (
+                        <div key={s.l} style={{ marginBottom: 18 }}>
+                           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6, fontSize: '0.72rem' }}>
+                              <span style={{ color: '#fff' }}>{s.l}</span>
+                              <span style={{ color: s.c }}>{s.v}</span>
+                           </div>
+                           <div className="progress-track" style={{ height: 4, background: 'rgba(255,255,255,.05)' }}>
+                              <div style={{ width: `${s.p}%`, height: '100%', background: s.c, borderRadius: 99, boxShadow: `0 0 10px ${s.c}44` }} />
+                           </div>
+                        </div>
+                      ))}
+                   </div>
+
+                   {/* System Preferences */}
+                   <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                      <div className="glass-panel" style={{ padding: 20, background: 'rgba(0,0,0,.2)' }}>
+                         <div style={{ fontSize: '0.65rem', color: '#52525b', marginBottom: 15, textTransform: 'uppercase' }}>Hardware & Blockchain</div>
+                         {[
+                           { l: 'GPU Acceleration (CUDA)', v: 'Active', s: true },
+                           { l: 'Multi-GPU Clustering', v: 'Enabled', s: true },
+                           { l: 'Blockchain Ledger Sync', v: 'Automatic', s: true },
+                           { l: 'Local Buffer Storage', v: '2GB Limit', s: false },
+                         ].map(it => (
+                           <div key={it.l} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 }}>
+                              <span style={{ fontSize: '0.75rem', color: '#a1a1aa' }}>{it.l}</span>
+                              <div style={{ width: 34, height: 18, background: it.s ? '#00F5FF' : '#1e1e2d', borderRadius: 99, padding: 3, position: 'relative' }}>
+                                 <div style={{ width: 12, height: 12, background: '#fff', borderRadius: '50%', marginLeft: it.s ? 16 : 0 }} />
+                              </div>
+                           </div>
+                         ))}
+                      </div>
+                      <div className="glass-panel" style={{ padding: 20, background: 'linear-gradient(90deg, #ec489911, transparent)' }}>
+                         <div style={{ fontSize: '0.65rem', color: '#ec4899', marginBottom: 10, textTransform: 'uppercase' }}>Dangerous Operations</div>
+                         <button className="btn-outline" style={{ width: '100%', borderColor: '#ec489933', color: '#ec4899', fontSize: '0.65rem' }}>Flush Local Decision Cache</button>
+                      </div>
+                   </div>
+                </div>
+             </div>
+          )}
+
         </div>
       </main>
 
